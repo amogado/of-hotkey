@@ -38,7 +38,7 @@ $END
 EOF
 }
 
-if grep -qF "$BEGIN" "$INIT"; then
+if grep -qF -- "$BEGIN" "$INIT"; then
   if [[ "$FORCE" == "--force" ]]; then
     # Delete the existing managed block (BEGIN..END inclusive), then re-append.
     awk -v b="$BEGIN" -v e="$END" '

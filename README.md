@@ -48,9 +48,9 @@ cd of-hotkey && ./install.sh
 ## Setup
 
 **1. Wire it into Hammerspoon.** `of-hotkey-setup` idempotently adds a managed
-block to `~/.hammerspoon/init.lua` (the Homebrew formula and `install.sh` run it
-for you). It is safe to re-run — it only adds the block when it's missing, and
-never touches bindings you put inside it:
+block to `~/.hammerspoon/init.lua` (`install.sh` runs it for you; after
+`brew install`, run it once). It is safe to re-run — it only adds the block when
+it's missing, and never touches bindings you put inside it:
 
 ```sh
 of-hotkey-setup
