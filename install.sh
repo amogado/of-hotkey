@@ -15,11 +15,18 @@ BIN_DIR="$HOME/bin"
 mkdir -p "$HS_DIR" "$BIN_DIR"
 
 ln -sf "$REPO_DIR/of-hotkey.lua" "$HS_DIR/of-hotkey.lua"
-chmod +x "$REPO_DIR/bin/of-hotkey-projects"
+chmod +x "$REPO_DIR/bin/of-hotkey-projects" "$REPO_DIR/bin/of-hotkey-setup"
 ln -sf "$REPO_DIR/bin/of-hotkey-projects" "$BIN_DIR/of-hotkey-projects"
+ln -sf "$REPO_DIR/bin/of-hotkey-setup" "$BIN_DIR/of-hotkey-setup"
 
-print "of-hotkey installed:"
-print "  • $HS_DIR/of-hotkey.lua      (require \"of-hotkey\" from init.lua)"
-print "  • $BIN_DIR/of-hotkey-projects (run it to list your project IDs)"
+# Idempotently add the managed block to ~/.hammerspoon/init.lua.
+"$REPO_DIR/bin/of-hotkey-setup"
+
 print ""
-print "Next: add your bindings to ~/.hammerspoon/init.lua — see the README."
+print "of-hotkey installed:"
+print "  • $HS_DIR/of-hotkey.lua       (Hammerspoon module)"
+print "  • $BIN_DIR/of-hotkey-projects  (list your project IDs)"
+print "  • $BIN_DIR/of-hotkey-setup     (idempotent init.lua wiring)"
+print ""
+print "Next: put your project IDs in the of-hotkey block of ~/.hammerspoon/init.lua,"
+print "then reload Hammerspoon."

@@ -1,0 +1,57 @@
+#!/bin/zsh
+# of-hotkey-setup — idempotently add the of-hotkey block to ~/.hammerspoon/init.lua
+#
+# Safe to run any number of times: the block is delimited by markers, and setup
+# only appends it when those markers are absent. Your edits inside the block
+# (your project bindings) are never touched on re-run.
+#
+#   of-hotkey-setup           add the block if missing
+#   of-hotkey-setup --force   replace the managed block (rewrites the wiring,
+#                             DISCARDING any bindings you added inside it)
+set -eu
+
+HS_DIR="$HOME/.hammerspoon"
+INIT="$HS_DIR/init.lua"
+BEGIN="-- >>> of-hotkey (managed) >>>"
+END="-- <<< of-hotkey <<<"
+FORCE="${1:-}"
+
+mkdir -p "$HS_DIR"
+touch "$INIT"
+
+# Resolve the installed module dir (Apple Silicon or Intel; harmless if brew
+# is absent — require() then falls back to a ~/.hammerspoon symlink).
+LIB="$(brew --prefix 2>/dev/null || echo /usr/local)/opt/of-hotkey/libexec"
+
+block() {
+  cat <<EOF
+$BEGIN
+package.path = "$LIB/?.lua;" .. package.path
+local ok_ofhotkey, ofhotkey = pcall(require, "of-hotkey")
+if ok_ofhotkey then
+  ofhotkey.bind({
+    -- One line per project. List IDs with:  of-hotkey-projects
+    -- { key = "E", project = "PASTE_PROJECT_ID" },
+  })
+end
+$END
+EOF
+}
+
+if grep -qF "$BEGIN" "$INIT"; then
+  if [[ "$FORCE" == "--force" ]]; then
+    # Delete the existing managed block (BEGIN..END inclusive), then re-append.
+    awk -v b="$BEGIN" -v e="$END" '
+      $0==b {skip=1} skip && $0==e {skip=0; next} !skip' "$INIT" > "$INIT.tmp"
+    mv "$INIT.tmp" "$INIT"
+    printf '\n%s\n' "$(block)" >> "$INIT"
+    print "of-hotkey: managed block rewritten in $INIT (bindings reset)."
+  else
+    print "of-hotkey: block already present in $INIT — nothing to do."
+  fi
+  exit 0
+fi
+
+printf '\n%s\n' "$(block)" >> "$INIT"
+print "of-hotkey: added block to $INIT"
+print "Edit the bindings inside the block (of-hotkey-projects lists your IDs), then reload Hammerspoon."

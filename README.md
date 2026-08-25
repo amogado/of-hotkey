@@ -47,20 +47,42 @@ cd of-hotkey && ./install.sh
 
 ## Setup
 
-**1. Find your project IDs.** With OmniFocus running:
+**1. Wire it into Hammerspoon.** `of-hotkey-setup` idempotently adds a managed
+block to `~/.hammerspoon/init.lua` (the Homebrew formula and `install.sh` run it
+for you). It is safe to re-run — it only adds the block when it's missing, and
+never touches bindings you put inside it:
+
+```sh
+of-hotkey-setup
+```
+
+This inserts:
+
+```lua
+-- >>> of-hotkey (managed) >>>
+package.path = "…/opt/of-hotkey/libexec/?.lua;" .. package.path
+local ok_ofhotkey, ofhotkey = pcall(require, "of-hotkey")
+if ok_ofhotkey then
+  ofhotkey.bind({
+    -- One line per project. List IDs with:  of-hotkey-projects
+    -- { key = "E", project = "PASTE_PROJECT_ID" },
+  })
+end
+-- <<< of-hotkey <<<
+```
+
+**2. Find your project IDs.** With OmniFocus running:
 
 ```sh
 of-hotkey-projects
 ```
 
-Each line is `<folder path>\t<project id>`. Copy the ID of the project you want.
-The ID is unique even when two projects share a name.
+Each line is `<folder path>\t<project id>`. The ID is unique even when two
+projects share a name.
 
-**2. Add bindings** to `~/.hammerspoon/init.lua`:
+**3. Add your bindings** inside the managed block:
 
 ```lua
-local ofhotkey = require("of-hotkey")
-
 ofhotkey.bind({
   { key = "E", project = "aBcDeFgH123" },                          -- ⌃⌥⌘E
   { key = "N", project = "Zy9WvUtSr-0", mods = { "cmd", "alt" } }, -- ⌥⌘N
@@ -69,15 +91,11 @@ ofhotkey.bind({
 
 `mods` is optional and defaults to `{ "ctrl", "alt", "cmd" }`.
 
-> Installed via Homebrew? Point Lua at the formula instead of relying on the
-> symlink:
-> ```lua
-> package.path = "#{brew --prefix}/opt/of-hotkey/libexec/?.lua;" .. package.path
-> ```
-> (Run `brew --prefix` once and paste the absolute path.)
-
-**3. Reload Hammerspoon** (menubar ▸ Reload Config, or restart it). Then press
+**4. Reload Hammerspoon** (menubar ▸ Reload Config, or restart it). Then press
 your hotkey from any app.
+
+> Re-run `of-hotkey-setup --force` to rewrite the wiring line after a move
+> (this resets the bindings inside the block).
 
 ## API
 
