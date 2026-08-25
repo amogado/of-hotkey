@@ -1,0 +1,56 @@
+#!/bin/zsh
+# of-hotkey-projects — list every OmniFocus project with its unique ID.
+#
+# The ID (primaryKey) is what you pass as `project = "..."` in your of-hotkey
+# bindings. Output is one project per line:  <folder path>\t<id>
+#
+# How it works: it asks OmniFocus (via the omnifocus:///omnijs-run URL scheme)
+# to run a tiny Omni Automation script that writes the list to the clipboard,
+# reads it back, then restores your previous clipboard contents.
+#
+# Requires: OmniFocus 4 (macOS), with "Omni Automation" enabled.
+set -eu
+
+# Save whatever is currently on the clipboard so we can restore it afterwards.
+SAVED="$(pbpaste 2>/dev/null || true)"
+SENTINEL="__of_hotkey_$$__"
+printf '%s' "$SENTINEL" | pbcopy
+
+read -r -d '' SCRIPT <<'JS' || true
+(() => {
+  try {
+    const pathOf = (p) => {
+      let n = [p.name];
+      let f = p.parentFolder;
+      while (f) { n.unshift(f.name); f = f.parent; }
+      return n.join(" / ");
+    };
+    const lines = flattenedProjects.map(p => pathOf(p) + "\t" + p.id.primaryKey).sort();
+    Pasteboard.general.string = lines.join("\n");
+  } catch (e) {
+    Pasteboard.general.string = "ERROR: " + e;
+  }
+})();
+JS
+
+# Percent-encode the script for the URL query (perl ships with macOS).
+ENCODED="$(printf '%s' "$SCRIPT" | perl -MENV -pe 's/([^A-Za-z0-9_.~-])/sprintf("%%%02X",ord($1))/ge')"
+open "omnifocus:///omnijs-run?script=$ENCODED"
+
+# Wait (up to ~10s) for OmniFocus to replace the sentinel with the real list.
+OUT="$SENTINEL"
+for _ in {1..50}; do
+  OUT="$(pbpaste)"
+  [[ "$OUT" != "$SENTINEL" ]] && break
+  sleep 0.2
+done
+
+# Restore the user's original clipboard.
+printf '%s' "$SAVED" | pbcopy
+
+if [[ "$OUT" == "$SENTINEL" ]]; then
+  print -u2 "of-hotkey-projects: no response from OmniFocus (is it running, with Omni Automation enabled?)"
+  exit 1
+fi
+
+print -r -- "$OUT"
