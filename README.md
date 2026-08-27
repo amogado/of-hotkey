@@ -7,6 +7,9 @@ Press a key from Safari, Mail, your terminal, wherever: the real Quick Entry
 window appears, with the project pre-filled. You still get the full panel —
 edit the title, change the project, add tags/dates/flag — before saving.
 
+It also gives you an always-visible **OmniFocus menu bar anchor** (so you never
+lose OmniFocus), and can add OmniFocus to your **login items**.
+
 ## Why not just OmniFocus?
 
 - OmniFocus has **no native "default project"** for Quick Entry: captured items
@@ -63,12 +66,21 @@ This inserts:
 package.path = "…/opt/of-hotkey/libexec/?.lua;" .. package.path
 local ok_ofhotkey, ofhotkey = pcall(require, "of-hotkey")
 if ok_ofhotkey then
-  ofhotkey.bind({
-    -- One line per project. List IDs with:  of-hotkey-projects
-    -- { key = "E", project = "PASTE_PROJECT_ID" },
+  ofhotkey.setup({
+    menubar = true,  -- always-visible OmniFocus menubar anchor
+    bindings = {
+      -- One line per project. List IDs with:  of-hotkey-projects
+      -- { key = "E", project = "PASTE_PROJECT_ID", label = "My Project" },
+    },
   })
 end
 -- <<< of-hotkey <<<
+```
+
+To also launch OmniFocus at login, run it once with `--autostart` (idempotent):
+
+```sh
+of-hotkey-setup --autostart
 ```
 
 **2. Find your project IDs.** With OmniFocus running:
@@ -83,16 +95,20 @@ projects share a name.
 **3. Add your bindings** inside the managed block:
 
 ```lua
-ofhotkey.bind({
-  { key = "E", project = "aBcDeFgH123" },                          -- ⌃⌥⌘E
-  { key = "N", project = "Zy9WvUtSr-0", mods = { "cmd", "alt" } }, -- ⌥⌘N
+ofhotkey.setup({
+  menubar = true,
+  bindings = {
+    { key = "E", project = "aBcDeFgH123", label = "Ephais" },                          -- ⌃⌥⌘E
+    { key = "N", project = "Zy9WvUtSr-0", label = "Notes", mods = { "cmd", "alt" } },   -- ⌥⌘N
+  },
 })
 ```
 
-`mods` is optional and defaults to `{ "ctrl", "alt", "cmd" }`.
+`mods` is optional (defaults to `{ "ctrl", "alt", "cmd" }`); `label` is optional
+(shown in the menu bar; falls back to the project ID).
 
 **4. Reload Hammerspoon** (menubar ▸ Reload Config, or restart it). Then press
-your hotkey from any app.
+your hotkey from any app, or click the OmniFocus menu bar icon.
 
 > Re-run `of-hotkey-setup --force` to rewrite the wiring line after a move
 > (this resets the bindings inside the block).
@@ -101,8 +117,12 @@ your hotkey from any app.
 
 `require("of-hotkey")` returns a table with:
 
+- `setup{ bindings = {...}, menubar = true|false }` — bind hotkeys and,
+  optionally, show the always-visible OmniFocus menu bar anchor. Both are driven
+  by the same `bindings` list.
 - `openProject(id)` — open Quick Entry pre-set to the project with that ID.
 - `bind(specs)` — bind a list of `{ key = , project = , mods = }` specs.
+- `menubar(specs)` — create just the menu bar anchor from a list of specs.
 - `defaultMods` — the fallback modifier combo (`{ "ctrl", "alt", "cmd" }`).
 
 ## License

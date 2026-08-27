@@ -1,26 +1,55 @@
 #!/bin/zsh
-# of-hotkey-setup — idempotently add the of-hotkey block to ~/.hammerspoon/init.lua
+# of-hotkey-setup — idempotently wire of-hotkey into your Mac.
 #
-# Safe to run any number of times: the block is delimited by markers, and setup
-# only appends it when those markers are absent. Your edits inside the block
-# (your project bindings) are never touched on re-run.
+#   of-hotkey-setup              add the managed block to ~/.hammerspoon/init.lua
+#   of-hotkey-setup --autostart  also add OmniFocus to your login items
+#   of-hotkey-setup --force      rewrite the managed block (resets its bindings)
 #
-#   of-hotkey-setup           add the block if missing
-#   of-hotkey-setup --force   replace the managed block (rewrites the wiring,
-#                             DISCARDING any bindings you added inside it)
+# Safe to run any number of times. The init.lua block is delimited by markers
+# and only added when absent; your edits inside it are never touched on re-run.
+# The login item is only added if OmniFocus isn't already one.
 set -eu
 
 HS_DIR="$HOME/.hammerspoon"
 INIT="$HS_DIR/init.lua"
 BEGIN="-- >>> of-hotkey (managed) >>>"
 END="-- <<< of-hotkey <<<"
-FORCE="${1:-}"
+FORCE=""
+AUTOSTART=""
 
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force) FORCE="1"; shift ;;
+    --autostart) AUTOSTART="1"; shift ;;
+    *) print -u2 "of-hotkey-setup: unknown arg '$1'"; exit 2 ;;
+  esac
+done
+
+# --- OmniFocus login item (idempotent) -------------------------------------
+if [[ -n "$AUTOSTART" ]]; then
+  OF_APP="$(mdfind "kMDItemCFBundleIdentifier == 'com.omnigroup.OmniFocus4'" 2>/dev/null | head -1)"
+  [[ -z "$OF_APP" ]] && OF_APP="/Applications/OmniFocus.app"
+  osascript - "$OF_APP" <<'APPLESCRIPT'
+on run argv
+  set ofPath to item 1 of argv
+  tell application "System Events"
+    if not (exists login item "OmniFocus") then
+      make login item at end with properties {path:ofPath, hidden:false}
+      log "of-hotkey: OmniFocus added to login items"
+    else
+      log "of-hotkey: OmniFocus already a login item"
+    end if
+  end tell
+end run
+APPLESCRIPT
+fi
+
+# --- Hammerspoon managed block (idempotent) --------------------------------
 mkdir -p "$HS_DIR"
 touch "$INIT"
 
-# Resolve the installed module dir (Apple Silicon or Intel; harmless if brew
-# is absent — require() then falls back to a ~/.hammerspoon symlink).
+# Resolve the installed module dir (Apple Silicon or Intel; harmless if brew is
+# absent — require() then falls back to a ~/.hammerspoon symlink).
 LIB="$(brew --prefix 2>/dev/null || echo /usr/local)/opt/of-hotkey/libexec"
 
 block() {
@@ -29,9 +58,12 @@ $BEGIN
 package.path = "$LIB/?.lua;" .. package.path
 local ok_ofhotkey, ofhotkey = pcall(require, "of-hotkey")
 if ok_ofhotkey then
-  ofhotkey.bind({
-    -- One line per project. List IDs with:  of-hotkey-projects
-    -- { key = "E", project = "PASTE_PROJECT_ID" },
+  ofhotkey.setup({
+    menubar = true,  -- always-visible OmniFocus menubar anchor
+    bindings = {
+      -- One line per project. List IDs with:  of-hotkey-projects
+      -- { key = "E", project = "PASTE_PROJECT_ID", label = "My Project" },
+    },
   })
 end
 $END
@@ -39,8 +71,7 @@ EOF
 }
 
 if grep -qF -- "$BEGIN" "$INIT"; then
-  if [[ "$FORCE" == "--force" ]]; then
-    # Delete the existing managed block (BEGIN..END inclusive), then re-append.
+  if [[ -n "$FORCE" ]]; then
     awk -v b="$BEGIN" -v e="$END" '
       $0==b {skip=1} skip && $0==e {skip=0; next} !skip' "$INIT" > "$INIT.tmp"
     mv "$INIT.tmp" "$INIT"
